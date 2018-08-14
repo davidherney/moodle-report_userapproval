@@ -31,7 +31,7 @@ require_once($CFG->dirroot.'/user/filters/lib.php');
 $sort           = optional_param('sort', 'firstname', PARAM_ALPHANUM);
 $dir            = optional_param('dir', 'ASC', PARAM_ALPHA);
 $page           = optional_param('page', 0, PARAM_INT);
-$perpage        = optional_param('perpage', 3, PARAM_INT);
+$perpage        = optional_param('perpage', 30, PARAM_INT);
 $format         = optional_param('format', '', PARAM_ALPHA);
 $who            = optional_param('who', 'summary', PARAM_ALPHA);
 
