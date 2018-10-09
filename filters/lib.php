@@ -15,14 +15,15 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * This file contains the User approval Filter API.
+ * This file extends the User Filter API.
  *
  * @package    report_userapproval
  * @copyright 2017 David Herney Bernal - cirano
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-require_once($CFG->dirroot.'/user/filters/lib.php');
+require_once($CFG->dirroot . '/user/filters/lib.php');
+require_once($CFG->dirroot . '/report/userapproval/filters/profilefield.php');
 
 /**
  * Userapproval filtering wrapper class.
@@ -31,85 +32,7 @@ require_once($CFG->dirroot.'/user/filters/lib.php');
  * @copyright 2017 David Herney Bernal - cirano
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class userapproval_filtering {
-    /** @var array */
-    public $_fields;
-    /** @var \user_add_filter_form */
-    public $_addform;
-    /** @var \user_active_filter_form */
-    public $_activeform;
-
-    /**
-     * Contructor
-     * @param array $fieldnames array of visible user fields
-     * @param string $baseurl base url used for submission/return, null if the same of current page
-     * @param array $extraparams extra page parameters
-     */
-    public function __construct($fieldnames = null, $baseurl = null, $extraparams = null) {
-        global $SESSION;
-
-        if (!isset($SESSION->userapproval_filtering)) {
-            $SESSION->cfiltering = array();
-        }
-
-        if (empty($fieldnames)) {
-            $fieldnames = array('realname' => 0, 'lastname' => 1, 'firstname' => 1, 'username' => 1, 'email' => 1, 'city' => 1, 'country' => 1,
-                                'confirmed' => 1, 'suspended' => 1, 'profile' => 1, 'courserole' => 1, 'systemrole' => 1,
-                                'cohort' => 1, 'firstaccess' => 1, 'lastaccess' => 1, 'neveraccessed' => 1, 'timemodified' => 1,
-                                'nevermodified' => 1, 'auth' => 1, 'mnethostid' => 1, 'idnumber' => 1);
-        }
-
-        $this->_fields  = array();
-
-        foreach ($fieldnames as $fieldname => $advanced) {
-            if ($field = $this->get_field($fieldname, $advanced)) {
-                $this->_fields[$fieldname] = $field;
-            }
-        }
-
-        // Fist the new filter form.
-        $this->_addform = new user_add_filter_form($baseurl, array('fields' => $this->_fields, 'extraparams' => $extraparams));
-        if ($adddata = $this->_addform->get_data()) {
-            foreach ($this->_fields as $fname => $field) {
-                $data = $field->check_data($adddata);
-                if ($data === false) {
-                    continue; // Nothing new.
-                }
-                if (!array_key_exists($fname, $SESSION->userapproval_filtering)) {
-                    $SESSION->userapproval_filtering[$fname] = array();
-                }
-                $SESSION->userapproval_filtering[$fname][] = $data;
-            }
-            // Clear the form.
-            $_POST = array();
-            $this->_addform = new user_add_filter_form($baseurl, array('fields' => $this->_fields, 'extraparams' => $extraparams));
-        }
-
-        // Now the active filters.
-        $this->_activeform = new user_active_filter_form($baseurl, array('fields' => $this->_fields, 'extraparams' => $extraparams));
-        if ($adddata = $this->_activeform->get_data()) {
-            if (!empty($adddata->removeall)) {
-                $SESSION->userapproval_filtering = array();
-
-            } else if (!empty($adddata->removeselected) and !empty($adddata->filter)) {
-                foreach ($adddata->filter as $fname => $instances) {
-                    foreach ($instances as $i => $val) {
-                        if (empty($val)) {
-                            continue;
-                        }
-                        unset($SESSION->userapproval_filtering[$fname][$i]);
-                    }
-                    if (empty($SESSION->userapproval_filtering[$fname])) {
-                        unset($SESSION->userapproval_filtering[$fname]);
-                    }
-                }
-            }
-            // Clear+reload the form.
-            $_POST = array();
-            $this->_activeform = new user_active_filter_form($baseurl, array('fields' => $this->_fields, 'extraparams' => $extraparams));
-        }
-        // Now the active filters.
-    }
+class userapproval_filtering extends user_filtering {
 
     /**
      * Creates known user filter if present
@@ -130,7 +53,7 @@ class userapproval_filtering {
             case 'country':     return new user_filter_select('country', get_string('country'), $advanced, 'country', get_string_manager()->get_list_of_countries(), $USER->country);
             case 'confirmed':   return new user_filter_yesno('confirmed', get_string('confirmed', 'admin'), $advanced, 'confirmed');
             case 'suspended':   return new user_filter_yesno('suspended', get_string('suspended', 'auth'), $advanced, 'suspended');
-            case 'profile':     return new user_filter_profilefield('profile', get_string('profilefields', 'admin'), $advanced);
+            case 'profile':     return new userapproval_filter_profilefield('profile', get_string('profilefields', 'admin'), $advanced);
             case 'courserole':  return new user_filter_courserole('courserole', get_string('courserole', 'filters'), $advanced);
             case 'systemrole':  return new user_filter_globalrole('systemrole', get_string('globalrole', 'role'), $advanced);
             case 'firstaccess': return new user_filter_date('firstaccess', get_string('firstaccess', 'filters'), $advanced, 'firstaccess');
@@ -181,56 +104,4 @@ class userapproval_filtering {
         }
     }
 
-    /**
-     * Returns sql where statement based on active user filters
-     * @param string $extra sql
-     * @param array $params named params (recommended prefix ex)
-     * @return array sql string and $params
-     */
-    public function get_sql_filter($extra='', array $params=null) {
-        global $SESSION;
-
-        $sqls = array();
-        if ($extra != '') {
-            $sqls[] = $extra;
-        }
-        $params = (array)$params;
-
-        if (!empty($SESSION->userapproval_filtering)) {
-            foreach ($SESSION->userapproval_filtering as $fname => $datas) {
-                if (!array_key_exists($fname, $this->_fields)) {
-                    continue; // Filter not used.
-                }
-                $field = $this->_fields[$fname];
-                foreach ($datas as $i => $data) {
-                    list($s, $p) = $field->get_sql_filter($data);
-                    $sqls[] = $s;
-                    $params = $params + $p;
-                }
-            }
-        }
-
-        if (empty($sqls)) {
-            return array('', array());
-        } else {
-            $sqls = implode(' AND ', $sqls);
-            return array($sqls, $params);
-        }
-    }
-
-    /**
-     * Print the add filter form.
-     */
-    public function display_add() {
-        $this->_addform->display();
-    }
-
-    /**
-     * Print the active filter form.
-     */
-    public function display_active() {
-        $this->_activeform->display();
-    }
-
 }
-

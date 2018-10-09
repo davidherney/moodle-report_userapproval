@@ -25,8 +25,7 @@
 require_once('../../config.php');
 require_once($CFG->libdir . '/adminlib.php');
 require_once('locallib.php');
-//require_once('filters/lib.php');
-require_once($CFG->dirroot.'/user/filters/lib.php');
+require_once('filters/lib.php');
 
 $sort           = optional_param('sort', 'firstname', PARAM_ALPHANUM);
 $dir            = optional_param('dir', 'ASC', PARAM_ALPHA);
@@ -41,9 +40,12 @@ admin_externalpage_setup('reportuserapproval', '', null, '', array('pagelayout' 
 $baseurl = new moodle_url('/report/userapproval/index.php', array('sort' => $sort, 'dir' => $dir, 'perpage' => $perpage, 'page'=>$page));
 
 // create the user filter form
-$filtering = new user_filtering();
+$filtering = new userapproval_filtering();
 
-list($extrasql, $params) = $filtering->get_sql_filter();
+$fieldid = !is_siteadmin($USER) ? $DB->get_field('user_info_field', 'id', array('shortname' => 'boss')) : false;
+$extrasql = $fieldid ? "id IN (SELECT userid FROM {user_info_data} WHERE fieldid={$fieldid} AND data = '{$USER->username}')" : '';
+
+list($extrasql, $params) = $filtering->get_sql_filter($extrasql);
 
 if ($format) {
     $perpage = 0;
