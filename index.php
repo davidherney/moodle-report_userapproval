@@ -58,8 +58,8 @@ $users = get_users_listing($sort, $dir, null, null, '', '', '',
 $usercount = get_users(false);
 $usersearchcount = get_users(false, '', false, null, "", '', '', '', '', '*', $extrasql, $params);
 
-$courses = $DB->get_records_select('course', '', null, '', '*', $page * $perpage, $perpage);
-$coursecount = $DB->count_records('course');
+$courses = $DB->get_records('course', array('enablecompletion' => 1), '', '*', $page * $perpage, $perpage);
+$coursecount = $DB->count_records('course', array('enablecompletion' => 1));
 
 if ($courses) {
 
