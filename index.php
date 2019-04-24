@@ -61,6 +61,8 @@ $usersearchcount = get_users(false, '', false, null, "", '', '', '', '', '*', $e
 $courses = $DB->get_records('course', array('enablecompletion' => 1), '', '*', $page * $perpage, $perpage);
 $coursecount = $DB->count_records('course', array('enablecompletion' => 1));
 
+$coursestosummary = $DB->get_records('course', array('enablecompletion' => 1), '', '*');
+
 if ($courses) {
 
     $categories = $DB->get_records('course_categories');
@@ -86,10 +88,21 @@ if ($courses) {
 
     // Only download data.
     if ($format) {
+        $courseid = optional_param('courseid', 0, PARAM_INT);
+
+        if ($courseid) {
+            $course = $DB->get_record('course', array('id' => $courseid), '*', MUST_EXIST);
+            $courses = array($course);
+        }
+
         if ($who == 'summary') {
             $columns = array('id', 'fullname', 'category', 'enrolledusers', 'notcompleted', 'completedpercent');
         } else {
-            $columns = array('id', 'fullname', 'category', 'username', 'student', 'timecompleted');
+            $columns = array('id', 'fullname', 'category', 'username', 'student');
+
+            if ($who != 'notcompleted') {
+                $columns[] = 'timecompleted';
+            }
         }
 
         $fields = array();
@@ -166,11 +179,13 @@ if ($courses) {
                         $userinfo->username = $user->username;
                         $userinfo->student  = fullname($user);
 
-                        if ($oneassign->timecompleted) {
-                            $userinfo->timecompleted = userdate($oneassign->timecompleted, $strftimedate);
-                            $enrolleduserscompletion++;
-                        } else {
-                            $userinfo->timecompleted = $stringcolumns['notcompleted'];
+                        if ($who != 'notcompleted') {
+                            if ($oneassign->timecompleted) {
+                                $userinfo->timecompleted = userdate($oneassign->timecompleted, $strftimedate);
+                                $enrolleduserscompletion++;
+                            } else {
+                                $userinfo->timecompleted = $stringcolumns['notcompleted'];
+                            }
                         }
 
                         $userslist[] = $userinfo;
@@ -193,8 +208,18 @@ if ($courses) {
 
             if ($who != 'summary') {
                 $datarow->username = '';
-                $datarow->student = $enrolledusers;
-                $datarow->timecompleted = $enrolleduserscompletion;
+
+                if ($who != 'notcompleted') {
+                    if ($who == 'all') {
+                        $datarow->student = $enrolledusers;
+                        $datarow->timecompleted = $enrolleduserscompletion;
+                    } else {
+                        $datarow->student = $enrolleduserscompletion;
+                    }
+                } else {
+                    $datarow->student = $enrolledusers - $enrolleduserscompletion;
+                }
+
 
                 $data = array_merge($data, $userslist);
             } else {
@@ -222,6 +247,86 @@ flush();
 
 
 $content = '';
+
+if ($coursestosummary) {
+    $enrolledusers = 0;
+    $enrolleduserscompletion = 0;
+    $enrolledexists = false;
+
+    foreach ($coursestosummary as $row) {
+
+        $coursecontext = context_course::instance($row->id);
+
+        $sql = 'SELECT ra.id, ra.roleid, cc.timecompleted AS timecompleted, ra.userid
+                    FROM {role_assignments} AS ra
+                    LEFT JOIN {course_completions} AS cc ON cc.course = :courseid AND cc.userid = ra.userid
+                    WHERE ra.contextid = :contextid AND ra.roleid IN (' . $CFG->gradebookroles . ')';
+        $rolecounts = $DB->get_records_sql($sql, array('contextid' => $coursecontext->id, 'courseid' => $row->id));
+
+        if ($rolecounts && count($rolecounts) > 0) {
+            $enrolledexists = true;
+
+            foreach ($rolecounts as $oneassign) {
+                $user = null;
+                foreach ($users as $oneuser) {
+                    if ($oneuser->id == $oneassign->userid) {
+                        $user = $oneuser;
+                        break;
+                    }
+                }
+
+                if (!$user) {
+                    continue;
+                }
+
+                $enrolledusers++;
+                if ($oneassign->timecompleted) {
+                    $enrolleduserscompletion++;
+                }
+            }
+        }
+    }
+
+    $content .= html_writer::tag('h3', get_string('summary', 'report_userapproval'));
+    if ($enrolledusers == 0) {
+        if ($enrolledexists) {
+            $content .= html_writer::tag('p', get_string('notenrolledusersfilter', 'report_userapproval'));
+        } else {
+            $content .= html_writer::tag('p', get_string('notenrolledusers', 'report_userapproval'));
+        }
+    } else {
+        $enrolleduserspercent = $enrolledusers == 0 ? 0 : round($enrolleduserscompletion * 100 / $enrolledusers);
+
+        if ($enrolleduserscompletion == 0) {
+            $content .= html_writer::tag('span',get_string('userscompleted', 'report_userapproval', 0));
+        } else {
+            $url = $baseurl . '&format=csv&who=completed';
+            $content .= html_writer::tag('a',
+                get_string('userscompleted', 'report_userapproval', $enrolleduserscompletion), array('href' => $url));
+        }
+        $content .= ' - ';
+
+        if (($enrolledusers - $enrolleduserscompletion) == 0) {
+            $content .= html_writer::tag('span',get_string('usersuncompleted', 'report_userapproval', 0));
+        } else {
+            $url = $baseurl . '&format=csv&who=notcompleted';
+            $content .= html_writer::tag('a',
+                get_string('usersuncompleted', 'report_userapproval', $enrolledusers - $enrolleduserscompletion), array('href' => $url));
+        }
+        $content .= ' - ';
+
+        $url = $baseurl . '&format=csv&who=all';
+        $content .= html_writer::tag('a',
+            get_string('usersenrolled', 'report_userapproval', $enrolledusers), array('href' => $url));
+
+        $content .= html_writer::start_tag('div', array('class' => 'indicatorbox'));
+        $content .= html_writer::tag('div', $enrolleduserspercent . '%', array('class' => 'percentlabel'));
+        $content .= html_writer::tag('div', '', array('class' => 'percentbar', 'style' => 'width: ' . $enrolleduserspercent . '%;'));
+        $content .= html_writer::end_tag('div');
+    }
+    $content .= '<hr />';
+
+}
 
 if ($courses) {
 
@@ -259,7 +364,7 @@ if ($courses) {
                     WHERE ra.contextid = :contextid AND ra.roleid IN (' . $CFG->gradebookroles . ')';
         $rolecounts = $DB->get_records_sql($sql, array('contextid' => $coursecontext->id, 'courseid' => $row->id));
 
-        if ($rolecounts & count($rolecounts) > 0) {
+        if ($rolecounts && count($rolecounts) > 0) {
             $enrolledexists = true;
             $enrolledusers = 0;
             $enrolleduserscompletion = 0;
@@ -302,10 +407,28 @@ if ($courses) {
                 $coursecontent .= html_writer::tag('p', get_string('notenrolledusers', 'report_userapproval'));
             }
         } else {
-            $a = new stdClass();
-            $a->users = $enrolleduserscompletion;
-            $a->all = $enrolledusers;
-            $coursecontent .= html_writer::tag('p', get_string('userscompletion', 'report_userapproval', $a));
+            if ($enrolleduserscompletion == 0) {
+                $coursecontent .= html_writer::tag('span',get_string('userscompleted', 'report_userapproval', 0));
+            } else {
+                $url = $baseurl . '&format=csv&who=completed&courseid=' . $row->id;
+                $coursecontent .= html_writer::tag('a',
+                    get_string('userscompleted', 'report_userapproval', $enrolleduserscompletion), array('href' => $url));
+            }
+            $coursecontent .= ' - ';
+
+            if (($enrolledusers - $enrolleduserscompletion) == 0) {
+                $coursecontent .= html_writer::tag('span',get_string('usersuncompleted', 'report_userapproval', 0));
+            } else {
+                $url = $baseurl . '&format=csv&who=notcompleted&courseid=' . $row->id;
+                $coursecontent .= html_writer::tag('a',
+                    get_string('usersuncompleted', 'report_userapproval', $enrolledusers - $enrolleduserscompletion), array('href' => $url));
+            }
+            $coursecontent .= ' - ';
+
+            $url = $baseurl . '&format=csv&who=all&courseid=' . $row->id;
+            $coursecontent .= html_writer::tag('a',
+                get_string('usersenrolled', 'report_userapproval', $enrolledusers), array('href' => $url));
+
             $coursecontent .= html_writer::start_tag('div', array('class' => 'indicatorbox'));
             $coursecontent .= html_writer::tag('div', $enrolleduserspercent . '%', array('class' => 'percentlabel'));
             $coursecontent .= html_writer::tag('div', '', array('class' => 'percentbar', 'style' => 'width: ' . $enrolleduserspercent . '%;'));
