@@ -300,7 +300,7 @@ if ($coursestosummary) {
         if ($enrolleduserscompletion == 0) {
             $content .= html_writer::tag('span',get_string('userscompleted', 'report_userapproval', 0));
         } else {
-            $url = $baseurl . '&format=csv&who=completed';
+            $url = $baseurl . '&format=xls&who=completed';
             $content .= html_writer::tag('a',
                 get_string('userscompleted', 'report_userapproval', $enrolleduserscompletion), array('href' => $url));
         }
@@ -309,13 +309,13 @@ if ($coursestosummary) {
         if (($enrolledusers - $enrolleduserscompletion) == 0) {
             $content .= html_writer::tag('span',get_string('usersuncompleted', 'report_userapproval', 0));
         } else {
-            $url = $baseurl . '&format=csv&who=notcompleted';
+            $url = $baseurl . '&format=xls&who=notcompleted';
             $content .= html_writer::tag('a',
                 get_string('usersuncompleted', 'report_userapproval', $enrolledusers - $enrolleduserscompletion), array('href' => $url));
         }
         $content .= ' - ';
 
-        $url = $baseurl . '&format=csv&who=all';
+        $url = $baseurl . '&format=xls&who=all';
         $content .= html_writer::tag('a',
             get_string('usersenrolled', 'report_userapproval', $enrolledusers), array('href' => $url));
 
@@ -410,7 +410,7 @@ if ($courses) {
             if ($enrolleduserscompletion == 0) {
                 $coursecontent .= html_writer::tag('span',get_string('userscompleted', 'report_userapproval', 0));
             } else {
-                $url = $baseurl . '&format=csv&who=completed&courseid=' . $row->id;
+                $url = $baseurl . '&format=xls&who=completed&courseid=' . $row->id;
                 $coursecontent .= html_writer::tag('a',
                     get_string('userscompleted', 'report_userapproval', $enrolleduserscompletion), array('href' => $url));
             }
@@ -419,13 +419,13 @@ if ($courses) {
             if (($enrolledusers - $enrolleduserscompletion) == 0) {
                 $coursecontent .= html_writer::tag('span',get_string('usersuncompleted', 'report_userapproval', 0));
             } else {
-                $url = $baseurl . '&format=csv&who=notcompleted&courseid=' . $row->id;
+                $url = $baseurl . '&format=xls&who=notcompleted&courseid=' . $row->id;
                 $coursecontent .= html_writer::tag('a',
                     get_string('usersuncompleted', 'report_userapproval', $enrolledusers - $enrolleduserscompletion), array('href' => $url));
             }
             $coursecontent .= ' - ';
 
-            $url = $baseurl . '&format=csv&who=all&courseid=' . $row->id;
+            $url = $baseurl . '&format=xls&who=all&courseid=' . $row->id;
             $coursecontent .= html_writer::tag('a',
                 get_string('usersenrolled', 'report_userapproval', $enrolledusers), array('href' => $url));
 
