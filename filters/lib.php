@@ -35,6 +35,79 @@ require_once($CFG->dirroot . '/report/userapproval/filters/profilefield.php');
 class userapproval_filtering extends user_filtering {
 
     /**
+     * Contructor
+     * @param array $fieldnames array of visible user fields
+     * @param string $baseurl base url used for submission/return, null if the same of current page
+     * @param array $extraparams extra page parameters
+     */
+    public function __construct($fieldnames = null, $baseurl = null, $extraparams = null) {
+        global $SESSION;
+
+        if (!isset($SESSION->user_filtering)) {
+            $SESSION->user_filtering = array();
+        }
+
+        if (empty($fieldnames)) {
+            $fieldnames = array('realname' => 0, 'lastname' => 1, 'firstname' => 1, 'username' => 1, 'email' => 1, 'city' => 1, 'country' => 1,
+                                'institution' => 1, 'department' => 1,
+                                'confirmed' => 1, 'suspended' => 1, 'profile' => 1, 'courserole' => 1, 'systemrole' => 1,
+                                'cohort' => 1, 'firstaccess' => 1, 'lastaccess' => 1, 'neveraccessed' => 1, 'timemodified' => 1,
+                                'nevermodified' => 1, 'auth' => 1, 'mnethostid' => 1, 'idnumber' => 1);
+        }
+
+        $this->_fields  = array();
+
+        foreach ($fieldnames as $fieldname => $advanced) {
+            if ($field = $this->get_field($fieldname, $advanced)) {
+                $this->_fields[$fieldname] = $field;
+            }
+        }
+
+        // Fist the new filter form.
+        $this->_addform = new user_add_filter_form($baseurl, array('fields' => $this->_fields, 'extraparams' => $extraparams));
+        if ($adddata = $this->_addform->get_data()) {
+            foreach ($this->_fields as $fname => $field) {
+                $data = $field->check_data($adddata);
+                if ($data === false) {
+                    continue; // Nothing new.
+                }
+                if (!array_key_exists($fname, $SESSION->user_filtering)) {
+                    $SESSION->user_filtering[$fname] = array();
+                }
+                $SESSION->user_filtering[$fname][] = $data;
+            }
+            // Clear the form.
+            $_POST = array();
+            $this->_addform = new user_add_filter_form($baseurl, array('fields' => $this->_fields, 'extraparams' => $extraparams));
+        }
+
+        // Now the active filters.
+        $this->_activeform = new user_active_filter_form($baseurl, array('fields' => $this->_fields, 'extraparams' => $extraparams));
+        if ($adddata = $this->_activeform->get_data()) {
+            if (!empty($adddata->removeall)) {
+                $SESSION->user_filtering = array();
+
+            } else if (!empty($adddata->removeselected) and !empty($adddata->filter)) {
+                foreach ($adddata->filter as $fname => $instances) {
+                    foreach ($instances as $i => $val) {
+                        if (empty($val)) {
+                            continue;
+                        }
+                        unset($SESSION->user_filtering[$fname][$i]);
+                    }
+                    if (empty($SESSION->user_filtering[$fname])) {
+                        unset($SESSION->user_filtering[$fname]);
+                    }
+                }
+            }
+            // Clear+reload the form.
+            $_POST = array();
+            $this->_activeform = new user_active_filter_form($baseurl, array('fields' => $this->_fields, 'extraparams' => $extraparams));
+        }
+        // Now the active filters.
+    }
+
+    /**
      * Creates known user filter if present
      * @param string $fieldname
      * @param boolean $advanced
@@ -51,6 +124,8 @@ class userapproval_filtering extends user_filtering {
             case 'email':       return new user_filter_text('email', get_string('email'), $advanced, 'email');
             case 'city':        return new user_filter_text('city', get_string('city'), $advanced, 'city');
             case 'country':     return new user_filter_select('country', get_string('country'), $advanced, 'country', get_string_manager()->get_list_of_countries(), $USER->country);
+            case 'institution':    return new user_filter_text('institution', get_string('institution'), $advanced, 'institution');
+            case 'department':    return new user_filter_text('department', get_string('department'), $advanced, 'department');
             case 'confirmed':   return new user_filter_yesno('confirmed', get_string('confirmed', 'admin'), $advanced, 'confirmed');
             case 'suspended':   return new user_filter_yesno('suspended', get_string('suspended', 'auth'), $advanced, 'suspended');
             case 'profile':     return new userapproval_filter_profilefield('profile', get_string('profilefields', 'admin'), $advanced);
