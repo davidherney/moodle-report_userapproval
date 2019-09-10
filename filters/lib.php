@@ -117,15 +117,15 @@ class userapproval_filtering extends user_filtering {
         global $USER, $CFG, $DB, $SITE;
 
         switch ($fieldname) {
-            case 'username':    return new user_filter_text('username', get_string('username'), $advanced, 'username');
+            case 'username':    return new user_filter_text('username', get_string('username', 'report_userapproval'), $advanced, 'username');
             case 'realname':    return new user_filter_text('realname', get_string('fullnameuser'), $advanced, $DB->sql_fullname());
             case 'lastname':    return new user_filter_text('lastname', get_string('lastname'), $advanced, 'lastname');
             case 'firstname':    return new user_filter_text('firstname', get_string('firstname'), $advanced, 'firstname');
             case 'email':       return new user_filter_text('email', get_string('email'), $advanced, 'email');
             case 'city':        return new user_filter_text('city', get_string('city'), $advanced, 'city');
             case 'country':     return new user_filter_select('country', get_string('country'), $advanced, 'country', get_string_manager()->get_list_of_countries(), $USER->country);
-            case 'institution':    return new user_filter_text('institution', get_string('institution'), $advanced, 'institution');
-            case 'department':    return new user_filter_text('department', get_string('department'), $advanced, 'department');
+            case 'institution':    return new user_filter_text('institution', get_string('institution', 'report_userapproval'), $advanced, 'institution');
+            case 'department':    return new user_filter_text('department', get_string('department', 'report_userapproval'), $advanced, 'department');
             case 'confirmed':   return new user_filter_yesno('confirmed', get_string('confirmed', 'admin'), $advanced, 'confirmed');
             case 'suspended':   return new user_filter_yesno('suspended', get_string('suspended', 'auth'), $advanced, 'suspended');
             case 'profile':     return new userapproval_filter_profilefield('profile', get_string('profilefields', 'admin'), $advanced);

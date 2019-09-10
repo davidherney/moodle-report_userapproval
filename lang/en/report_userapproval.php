@@ -44,3 +44,6 @@ $string['allusers'] = 'All users';
 $string['notcompleted'] = 'Only not completed';
 $string['summary'] = 'Summary';
 $string['completedpercent'] = 'Completed percent';
+$string['username'] = 'Cédula';
+$string['institution'] = 'Regional';
+$string['department'] = 'Gerencia';
