@@ -35,5 +35,13 @@ $capabilities = array(
         ),
 
         'clonepermissionsfrom' => 'moodle/site:viewreports',
+    ),
+
+    'report/userapproval:viewall' => array(
+        'riskbitmask' => RISK_PERSONAL,
+        'captype' => 'read',
+        'contextlevel' => CONTEXT_SYSTEM,
+        'archetypes' => array(
+        )
     )
 );

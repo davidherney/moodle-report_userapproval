@@ -39,19 +39,25 @@ admin_externalpage_setup('reportuserapproval', '', null, '', array('pagelayout' 
 
 $baseurl = new moodle_url('/report/userapproval/index.php', array('sort' => $sort, 'dir' => $dir, 'perpage' => $perpage, 'page'=>$page));
 
+require_login();
+
+$context = context_system::instance();
+
 // create the user filter form
 $filtering = new userapproval_filtering();
 
-$fieldid = !is_siteadmin($USER) ? $DB->get_field('user_info_field', 'id', array('shortname' => 'boss')) : false;
-$extrasql = $fieldid ? "id IN (SELECT userid FROM {user_info_data} WHERE fieldid={$fieldid} AND data = '{$USER->username}')" : '';
+if (has_capability('report/userapproval:viewall', $context)) {
+    $extrasql = '';
+} else {
+    $fieldid = $DB->get_field('user_info_field', 'id', array('shortname' => 'boss'));
+    $extrasql = "id IN (SELECT userid FROM {user_info_data} WHERE fieldid={$fieldid} AND data = '{$USER->username}')";
+}
 
 list($extrasql, $params) = $filtering->get_sql_filter($extrasql);
 
 if ($format) {
     $perpage = 0;
 }
-
-$context = context_system::instance();
 
 $users = get_users_listing($sort, $dir, null, null, '', '', '',
         $extrasql, $params, $context);

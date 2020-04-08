@@ -25,6 +25,7 @@
 $string['categorysystem'] = 'Sistema';
 $string['userapproval'] = 'Usuarios aprobados';
 $string['userapproval:view'] = 'Ver informe Usuarios aprobados';
+$string['userapproval:viewall'] = 'Ver informe de todos los usuarios aprobados';
 $string['filename'] = 'report_userapproval';
 $string['notcoursesfound'] = 'No se encontraron cursos';
 $string['pluginname'] = 'Usuarios aprobados';

@@ -25,6 +25,7 @@
 $string['categorysystem'] = 'System';
 $string['userapproval'] = 'User approval';
 $string['userapproval:view'] = 'User approval report view';
+$string['userapproval:viewall'] = 'User approval report view all users';
 $string['filename'] = 'report_userapproval';
 $string['notcoursesfound'] = 'Not courses found';
 $string['pluginname'] = 'User approval report';
