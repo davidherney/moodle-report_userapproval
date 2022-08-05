@@ -43,15 +43,21 @@ require_login();
 
 $context = context_system::instance();
 
-// create the user filter form
-$filtering = new userapproval_filtering();
-
 if (has_capability('report/userapproval:viewall', $context)) {
     $extrasql = '';
+    $filterfields = null;
 } else {
     $fieldid = $DB->get_field('user_info_field', 'id', array('shortname' => 'boss'));
-    $extrasql = "id IN (SELECT userid FROM {user_info_data} WHERE fieldid={$fieldid} AND data = '{$USER->username}')";
+    $extrasql = "suspended != 1 AND id IN (SELECT userid FROM {user_info_data} WHERE fieldid={$fieldid} AND data = '{$USER->username}')";
+
+    $filterfields = array('realname' => 0, 'lastname' => 1, 'firstname' => 1, 'username' => 1, 'email' => 1, 'city' => 1,
+                            'country' => 1, 'institution' => 1, 'department' => 1, 'profile' => 1, 'firstaccess' => 1,
+                            'lastaccess' => 1, 'neveraccessed' => 1, 'idnumber' => 1);
+
 }
+
+// create the user filter form
+$filtering = new userapproval_filtering($filterfields);
 
 list($extrasql, $params) = $filtering->get_sql_filter($extrasql);
 
