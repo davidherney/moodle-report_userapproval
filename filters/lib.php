@@ -15,14 +15,15 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * This file contains the User approval Filter API.
+ * This file extends the User Filter API.
  *
  * @package    report_userapproval
  * @copyright 2017 David Herney Bernal - cirano
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-require_once($CFG->dirroot.'/user/filters/lib.php');
+require_once($CFG->dirroot . '/user/filters/lib.php');
+require_once($CFG->dirroot . '/report/userapproval/filters/profilefield.php');
 
 /**
  * Userapproval filtering wrapper class.
@@ -31,13 +32,7 @@ require_once($CFG->dirroot.'/user/filters/lib.php');
  * @copyright 2017 David Herney Bernal - cirano
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class userapproval_filtering {
-    /** @var array */
-    public $_fields;
-    /** @var \user_add_filter_form */
-    public $_addform;
-    /** @var \user_active_filter_form */
-    public $_activeform;
+class userapproval_filtering extends user_filtering {
 
     /**
      * Contructor
@@ -48,12 +43,13 @@ class userapproval_filtering {
     public function __construct($fieldnames = null, $baseurl = null, $extraparams = null) {
         global $SESSION;
 
-        if (!isset($SESSION->userapproval_filtering)) {
-            $SESSION->cfiltering = array();
+        if (!isset($SESSION->user_filtering)) {
+            $SESSION->user_filtering = array();
         }
 
         if (empty($fieldnames)) {
             $fieldnames = array('realname' => 0, 'lastname' => 1, 'firstname' => 1, 'username' => 1, 'email' => 1, 'city' => 1, 'country' => 1,
+                                'institution' => 1, 'department' => 1,
                                 'confirmed' => 1, 'suspended' => 1, 'profile' => 1, 'courserole' => 1, 'systemrole' => 1,
                                 'cohort' => 1, 'firstaccess' => 1, 'lastaccess' => 1, 'neveraccessed' => 1, 'timemodified' => 1,
                                 'nevermodified' => 1, 'auth' => 1, 'mnethostid' => 1, 'idnumber' => 1);
@@ -75,10 +71,10 @@ class userapproval_filtering {
                 if ($data === false) {
                     continue; // Nothing new.
                 }
-                if (!array_key_exists($fname, $SESSION->userapproval_filtering)) {
-                    $SESSION->userapproval_filtering[$fname] = array();
+                if (!array_key_exists($fname, $SESSION->user_filtering)) {
+                    $SESSION->user_filtering[$fname] = array();
                 }
-                $SESSION->userapproval_filtering[$fname][] = $data;
+                $SESSION->user_filtering[$fname][] = $data;
             }
             // Clear the form.
             $_POST = array();
@@ -89,7 +85,7 @@ class userapproval_filtering {
         $this->_activeform = new user_active_filter_form($baseurl, array('fields' => $this->_fields, 'extraparams' => $extraparams));
         if ($adddata = $this->_activeform->get_data()) {
             if (!empty($adddata->removeall)) {
-                $SESSION->userapproval_filtering = array();
+                $SESSION->user_filtering = array();
 
             } else if (!empty($adddata->removeselected) and !empty($adddata->filter)) {
                 foreach ($adddata->filter as $fname => $instances) {
@@ -97,10 +93,10 @@ class userapproval_filtering {
                         if (empty($val)) {
                             continue;
                         }
-                        unset($SESSION->userapproval_filtering[$fname][$i]);
+                        unset($SESSION->user_filtering[$fname][$i]);
                     }
-                    if (empty($SESSION->userapproval_filtering[$fname])) {
-                        unset($SESSION->userapproval_filtering[$fname]);
+                    if (empty($SESSION->user_filtering[$fname])) {
+                        unset($SESSION->user_filtering[$fname]);
                     }
                 }
             }
@@ -121,16 +117,18 @@ class userapproval_filtering {
         global $USER, $CFG, $DB, $SITE;
 
         switch ($fieldname) {
-            case 'username':    return new user_filter_text('username', get_string('username'), $advanced, 'username');
+            case 'username':    return new user_filter_text('username', get_string('username', 'report_userapproval'), $advanced, 'username');
             case 'realname':    return new user_filter_text('realname', get_string('fullnameuser'), $advanced, $DB->sql_fullname());
             case 'lastname':    return new user_filter_text('lastname', get_string('lastname'), $advanced, 'lastname');
             case 'firstname':    return new user_filter_text('firstname', get_string('firstname'), $advanced, 'firstname');
             case 'email':       return new user_filter_text('email', get_string('email'), $advanced, 'email');
             case 'city':        return new user_filter_text('city', get_string('city'), $advanced, 'city');
             case 'country':     return new user_filter_select('country', get_string('country'), $advanced, 'country', get_string_manager()->get_list_of_countries(), $USER->country);
+            case 'institution':    return new user_filter_text('institution', get_string('institution', 'report_userapproval'), $advanced, 'institution');
+            case 'department':    return new user_filter_text('department', get_string('department', 'report_userapproval'), $advanced, 'department');
             case 'confirmed':   return new user_filter_yesno('confirmed', get_string('confirmed', 'admin'), $advanced, 'confirmed');
             case 'suspended':   return new user_filter_yesno('suspended', get_string('suspended', 'auth'), $advanced, 'suspended');
-            case 'profile':     return new user_filter_profilefield('profile', get_string('profilefields', 'admin'), $advanced);
+            case 'profile':     return new userapproval_filter_profilefield('profile', get_string('profilefields', 'admin'), $advanced);
             case 'courserole':  return new user_filter_courserole('courserole', get_string('courserole', 'filters'), $advanced);
             case 'systemrole':  return new user_filter_globalrole('systemrole', get_string('globalrole', 'role'), $advanced);
             case 'firstaccess': return new user_filter_date('firstaccess', get_string('firstaccess', 'filters'), $advanced, 'firstaccess');
@@ -181,56 +179,4 @@ class userapproval_filtering {
         }
     }
 
-    /**
-     * Returns sql where statement based on active user filters
-     * @param string $extra sql
-     * @param array $params named params (recommended prefix ex)
-     * @return array sql string and $params
-     */
-    public function get_sql_filter($extra='', array $params=null) {
-        global $SESSION;
-
-        $sqls = array();
-        if ($extra != '') {
-            $sqls[] = $extra;
-        }
-        $params = (array)$params;
-
-        if (!empty($SESSION->userapproval_filtering)) {
-            foreach ($SESSION->userapproval_filtering as $fname => $datas) {
-                if (!array_key_exists($fname, $this->_fields)) {
-                    continue; // Filter not used.
-                }
-                $field = $this->_fields[$fname];
-                foreach ($datas as $i => $data) {
-                    list($s, $p) = $field->get_sql_filter($data);
-                    $sqls[] = $s;
-                    $params = $params + $p;
-                }
-            }
-        }
-
-        if (empty($sqls)) {
-            return array('', array());
-        } else {
-            $sqls = implode(' AND ', $sqls);
-            return array($sqls, $params);
-        }
-    }
-
-    /**
-     * Print the add filter form.
-     */
-    public function display_add() {
-        $this->_addform->display();
-    }
-
-    /**
-     * Print the active filter form.
-     */
-    public function display_active() {
-        $this->_activeform->display();
-    }
-
 }
-
